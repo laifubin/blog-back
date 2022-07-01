@@ -27,21 +27,12 @@ class UserController {
     const users = await querySql('SELECT * FROM user')
     const result = userList.find(item => item.name === data.name && item.password === crypto.createHash('md5').update(data.password).digest('hex'))
     if (result) {
-      // 生成token
-      const token = jwt.sign(  
-        {
-          name: result.name
-        },
-        "test_token", // secret
-        { expiresIn: 60 * 60 } // 过期时间：60 * 60 s
-      );
+      // 生成token 
+      const token = jwt.sign({ name: result.name }, "token_secret_lfwuj72ewsg", { expiresIn: 60 * 60 });
       return ctx.body = {
         code: 200,
         message: "登录成功",
-        data: {
-          token,
-          users
-        }
+        data: { token }
       };
     } else {
       return ctx.body = {
