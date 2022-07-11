@@ -1,45 +1,69 @@
-const crypto = require("crypto"),
-  jwt = require("jsonwebtoken");
-
-const { runSql, querySql } =  require('./db/index.js')
-
-// runSql(`INSERT INTO user values ('laifubin', '123456')`)
-// TODO:使用数据库
-// 这里应该是用数据库存储，这里只是演示用
-let userList = [
-  {name: 'laifubin', password: '14e1b600b1fd579f47433b88e8d85291'}
-];
+const crypto = require("crypto")
+const { promisify } = require('node:util')
+const { Jwt } = require("./utils")
+const { db, querySql } =  require('./db/index.js')
 
 class UserController {
-  // 用户登录
-  static async login(ctx, next) {
-    const data = ctx.request.body;
-    console.log('ctx', data)
-    // console.log(crypto.createHash('md5').update('e10adc3949ba59abbe56e057f20f883e').digest('hex'), 999)
-     
-    
-    if (!data.name || !data.password) {
+  // 用户注册
+  static async register (ctx, next) {
+    const { name, password } = ctx.request.body
+    if (!name || !password) {
       return ctx.body = {
         code: 400, 
-        message: "参数不合法"
+        msg: "参数不合法"
+      }
+    }
+    const pwd = crypto.createHash('md5').update(password).digest('hex')
+    await promisify(db.run.bind(db))('INSERT OR REPLACE INTO user VALUES (?, ?)', [name, pwd])
+    return ctx.body = {
+      code: 200,
+      msg: `用户${name}注册成功`,
+      data: null
+    }
+  }
+  // 用户登录
+  static async login(ctx, next) {
+    const { name, password } = ctx.request.body;
+   
+    if (!name || !password) {
+      return ctx.body = {
+        code: 400, 
+        msg: "参数不合法"
       }
     }
     const users = await querySql('SELECT * FROM user')
-    const result = userList.find(item => item.name === data.name && item.password === crypto.createHash('md5').update(data.password).digest('hex'))
+    const result = users.find(item => item.name === name && item.password === crypto.createHash('md5').update(password).digest('hex'))
     if (result) {
-      // 生成token 
-      const token = jwt.sign({ name: result.name }, "token_secret_lfwuj72ewsg", { expiresIn: 60 * 60 });
+      // 生成token
+      const token = Jwt.generateToken({ name: result.name })
+
       return ctx.body = {
         code: 200,
-        message: "登录成功",
-        data: { token }
+        msg: "登录成功",
+        data: { name, token }
       };
     } else {
       return ctx.body = {
-        code: 200,
-        message: "用户名或密码错误",
+        code: 201,
+        msg: "用户名或密码错误", 
         data: null
       };  
+    }
+  }
+
+  // 刷新token
+  static refreshToken (ctx, next) {
+    const token = ctx.request.header.authorization
+    const { decoded, valid } = Jwt.verifyToken(token.slice(7))
+    if(valid){	
+      const name = decoded.name
+      const token = Jwt.generateToken({ name })
+
+      return ctx.body = {
+        code: 200,
+        msg: "刷新成功！",
+        data: { name, token }
+      }
     }
   }
 }
