@@ -6,7 +6,6 @@ var db = new sqlite3.Database('blog_back.sqlite')
 const runSql = async (sql) => {
   return new Promise(async (resolve, reject) => {
     db.run(sql, (err) => {
-      console.log('sql', sql)
       if(err) {
         reject(err)
       }else resolve()
